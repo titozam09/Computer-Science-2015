@@ -7,6 +7,7 @@
 
 void spiwrite (uint8_t data);
 void spi_init(void);
-	
+void spi_off(void);
+void spi_on(void);
 
 #endif

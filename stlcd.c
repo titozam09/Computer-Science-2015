@@ -1,33 +1,3 @@
-/*
-$Id:$
-
-ST7565 LCD library!
-
-Copyright (C) 2010 Limor Fried, Adafruit Industries
-
-
-This library is free software; you can redistribute it and/or 
-modify it under
-the terms of the GNU Lesser General Public
-License as published by the Free Software
-Foundation; either
-version 2.1 of the License, or (at your option) any later version.
-
-
-This library is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY;
-without even the implied warranty of 
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. 
-See the GNU
-Lesser General Public License for more details.
-
-You should have received a copy
-of the GNU Lesser General Public
-License along with this library; if not, write to the Free
-Software
-Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
-
-*/
 
 
 
@@ -52,177 +22,102 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 //This library is intended to handle the graphical functions of the CoG (white on black) with ST7565 controller.
 //Revision history:
 //Version 0: First development
-//
+//Version 1: Added functions 26/06/2015 10:46 p. m.
 
 #include <avr/io.h>
-
 #include <util/delay.h>
-
 #include <stdlib.h>
-
 #include "stlcd.h"
-
 #include "spi.h"
-
 #include "glcd.h"
 
-
-
-
-
+#define F_CPU 1000000UL
 
 #define SID_DDR DDRB
-
 #define SID_PIN PINB
-
 #define SID_PORT PORTB
-
 #define SID 5
 
-
-
 #define SCLK_DDR DDRB
-
 #define SCLK_PIN PINB
-
 #define SCLK_PORT PORTB
 #define SCLK 7
 
-
-
 #define A0_DDR DDRD
-
 #define A0_PIN PIND
-
 #define A0_PORT PORTD
-
 #define A0 7
 
-
-
 #define RST_DDR DDRD
-
 #define RST_PIN PIND
 #define RST_PORT PORTD
-
 #define RST 6
 
-
-
 #define CS_DDR DDRB
-
 #define CS_PIN PINB
-
 #define CS_PORT PORTB
-
 #define CS 4
 
-
-
-
 int pagemap[] = { 7,6,5,4,3,2,1,0 };
-
-
 
 void st7565_init(void)
 {
 	
 	//init SPI communication
-
 	spi_init();
 	// set pin directions
-
 	A0_DDR |= (1 << A0);
 	RST_DDR |= (1 << RST);
-
-
 	// toggle RST low to reset; CS low so it'll listen to us
-
 	CS_PORT &= ~(1 << CS);
 	RST_PORT &= ~(1 << RST);
-
 	_delay_ms(500);
-
 	RST_PORT |= (1 << RST);
-
 	// LCD bias select
-
 	st7565_command(CMD_SET_BIAS_7);
 	// ADC select= setting segments backwards
 	st7565_command(CMD_SET_ADC_REVERSE);
-
-	// SHL select
- = setting columns backwards
+	// SHL select = setting columns backwards
 	st7565_command(CMD_SET_COM_REVERSE);
-
-
 	// Initial display line
 	st7565_command(CMD_SET_DISP_START_LINE);
-
 	// turn on voltage converter (VC=1, VR=0, VF=0)
 	st7565_command(CMD_SET_POWER_CONTROL | 0x4);
-
 	// wait for 50% rising
-
 	_delay_ms(50);
-
-
 	// turn on voltage regulator (VC=1, VR=1, VF=0)
-
 	st7565_command(CMD_SET_POWER_CONTROL | 0x6);
-
 	// wait more or equal than 50ms
 	_delay_ms(50);
-
-
 	// turn on voltage follower (VC=1, VR=1, VF=1)
-
 	st7565_command(CMD_SET_POWER_CONTROL | 0x7);
-
 	// wait
-
 	_delay_ms(10);
 	// set lcd operating voltage (regulator resistor, ref voltage resistor)
 	st7565_command(CMD_SET_RESISTOR_RATIO | 0x6);
-
 	//set brightness
-	st7565_set_brightness(0x00);
-
+	st7565_set_brightness(0x0A);
 	//clear screen
 	clear_screen();
-	
 	//Start visualization of Display
-
 	st7565_command(CMD_DISPLAY_ON);
-
 	st7565_command(CMD_SET_ALLPTS_NORMAL);
 	st7565_command(CMD_SET_DISP_NORMAL);
 
 }
 
-
-
 //send 0x00 for every part of the screen
 void clear_screen(void)
-
 {
-
 	uint8_t page, column;
-
 
 	for(page = 0; page < 8; page++)
 	{
-
 		st7565_command(CMD_SET_PAGE | page);
-	
-
-
+		
 		for(column = 0; column < 128; column++)
-
 		{
-			
 			st7565_command(CMD_SET_COLUMN_LOWER | (column & 0x0f));
-
 			st7565_command(CMD_SET_COLUMN_UPPER | ((column >> 4) & 0x0f));
 			st7565_data(0x00);
 
@@ -232,18 +127,11 @@ void clear_screen(void)
 
 }
 
-
-
-
 //clear A0 for making a command instruction data
 void st7565_command(uint8_t info)
-
 {
-	
 	A0_PORT &= ~(1 << A0);
-
 	spiwrite(info);
-
 }
 
 
@@ -253,9 +141,7 @@ void st7565_data(uint8_t info)
 
 {
 	A0_PORT |= (1 << A0);
-
 	spiwrite(info);
-
 }
 
 
@@ -266,38 +152,27 @@ void st7565_set_brightness(uint8_t val)
 {
 
 	st7565_command(CMD_SET_VOLUME_FIRST);
-
 	st7565_command(CMD_SET_VOLUME_SECOND | (val & 0x3f));
 
 }
 
 //send data stored in the buffer
-
-
-
 void write_buffer(uint8_t *buffer)
 {
 
 	uint8_t column, page;
 
-	
 	for(page = 0; page < 8; page++)
 	{
 		//Send in page 7 contents of page 0, due to "mirroring" effects
 		st7565_command(CMD_SET_PAGE | pagemap[page]);
 		st7565_command(CMD_SET_COLUMN_LOWER | (0x00 & 0xf));
 		st7565_command(CMD_SET_COLUMN_UPPER | ((0x00 >> 4) & 0xf));
-
-	
 		for(column = 0; column < 128; column++)
 		{
-
 			st7565_data(buffer[(128*page)+column]);
-
 		}
-
 	}
-
 }
 
 
@@ -368,53 +243,13 @@ uint8_t const ascii_tab_small[] =
 	0x00, 0x82, 0x82, 0x82, 0xFE, //]
 	0x20, 0x40, 0x80, 0x40, 0x20, //^
 	0x02, 0x02, 0x02, 0x02, 0x02, //_
-	/*
-	//////////////////////////////////////////////////////////////////////////
-	//COULD MAKE THE ARRAY SHORTER TO GET MORE MEMORY
-	//////////////////////////////////////////////////////////////////////////
-	0x00, 0xC0, 0xE0, 0x10, 0x00, //`
-	0x04, 0x2A, 0x2A, 0x1E, 0x02, //a
-	0xFE, 0x14, 0x22, 0x22, 0x1C, //b
-	0x1C, 0x22, 0x22, 0x22, 0x14,
-	0x1C, 0x22, 0x22, 0x14, 0xFE,
-	0x1C, 0x2A, 0x2A, 0x2A, 0x18,
-	0x00, 0x10, 0x7E, 0x90, 0x40,
-	0x18, 0x25, 0x25, 0x39, 0x1E,
-	0xFE, 0x10, 0x20, 0x20, 0x1E,
-	0x00, 0x22, 0xBE, 0x02, 0x00,
-	0x04, 0x02, 0x02, 0xBC, 0x00,
-	0xFE, 0x08, 0x14, 0x22, 0x00,
-	0x00, 0x82, 0xFE, 0x02, 0x00,
-	0x3E, 0x20, 0x1E, 0x20, 0x1E,
-	0x3E, 0x10, 0x20, 0x20, 0x1E,
-	0x1C, 0x22, 0x22, 0x22, 0x1C,
-	0x3F, 0x18, 0x24, 0x24, 0x18,
-	0x18, 0x24, 0x24, 0x18, 0x3F,
-	0x3E, 0x10, 0x20, 0x20, 0x10,
-	0x12, 0x2A, 0x2A, 0x2A, 0x24,
-	0x20, 0x20, 0xFC, 0x22, 0x24,
-	0x3C, 0x02, 0x02, 0x04, 0x3E,
-	0x38, 0x04, 0x02, 0x04, 0x38,
-	0x3C, 0x02, 0x0C, 0x02, 0x3C,
-	0x22, 0x14, 0x08, 0x14, 0x22,
-	0x32, 0x09, 0x09, 0x09, 0x3E,
-	0x22, 0x26, 0x2A, 0x32, 0x22, //z
-	0x00, 0x10, 0x6C, 0x82, 0x00, //{
-	0x00, 0x00, 0xEE, 0x00, 0x00, //|
-	0x00, 0x82, 0x6C, 0x10, 0x00, //}
-	0x40, 0x80, 0x40, 0x20, 0x40, //~
-	0x3C, 0x64, 0xC4, 0x64, 0x3C, //
-	0x78, 0x8A, 0x8A, 0x8C, 0x48, //
-	*/
-	};
+};
 
 
 //put in buffer one character 5x7 
-void put_char(uint8_t *buff, uint8_t x, uint8_t line, uint8_t c)
-
+void drawchar(uint8_t *buff, uint8_t x, uint8_t line, uint8_t c)
 {
 	for (uint8_t i =0; i<5; i++ )
-
 	{
 		buff[x + (line*128) ] = ascii_tab_small[(c-32)*5+i];
 		x++;
@@ -423,16 +258,14 @@ void put_char(uint8_t *buff, uint8_t x, uint8_t line, uint8_t c)
 
 //put in buffer one set of characters
 void drawstring(uint8_t *buff, uint8_t x, uint8_t line, uint8_t text[])
-
 {
 	uint8_t i=0;
 	while (text[i] != 0)
 	{
-		put_char(buff, x, line, text[i]);
+		drawchar(buff, x, line, text[i]);
 		i++;
 		x += 6; // 6 pixels wide
 		if (x + 6 >= LCDWIDTH)
-
 		{
 			x = 0;    // ran out of this line
 			line++;
@@ -440,8 +273,50 @@ void drawstring(uint8_t *buff, uint8_t x, uint8_t line, uint8_t text[])
 		if (line >= (LCDHEIGHT/8))
 		return;        // ran out of space
 	}
+}
 
+// clear everything
+void clear_buffer(uint8_t *buff)
+{
+	memset(buff, 0, 1024);
+}
+
+
+//write just one page
+void write_page(uint8_t *buffer, uint8_t page)
+{
+	uint8_t column;
+	
+	st7565_command(CMD_SET_PAGE | pagemap[page]);
+	
+	for(column = 0; column < 128; column++)
+	{
+		st7565_command(CMD_SET_COLUMN_LOWER | (column & 0x0f));
+		st7565_command(CMD_SET_COLUMN_UPPER | ((column >> 4) & 0x0f));
+		st7565_data(buffer[(128*page)+column]);
+	}
+	
 
 }
+
+//erase just one page
+void clear_page(uint8_t *buffer, uint8_t page)
+{
+	uint8_t column;
+	
+	st7565_command(CMD_SET_PAGE | pagemap[page]);
+	
+	for(column = 0; column < 128; column++)
+	{
+		buffer[(128*page)+column]=0;
+		st7565_command(CMD_SET_COLUMN_LOWER | (column & 0x0f));
+		st7565_command(CMD_SET_COLUMN_UPPER | ((column >> 4) & 0x0f));
+		st7565_data(buffer[(128*page)+column]);
+	}
+	
+
+}
+
+
 
 

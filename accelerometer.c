@@ -4,8 +4,7 @@
 
 //+Digital Spirit Level
 
-//+Library for the accelerometer
- MMA7260QT
+//+Library for the accelerometer MMA7260QT
 //+
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -20,7 +19,7 @@
 //This library is intended to convert the ADC data to a measurable angle from the accelerometer MMA7260QT.
 //Revision history:
 //Version 0: First development
-//
+//Version 1: Changes in formulas and added functions 26/06/2015 10:42 p. m.
 
 
 #include <avr/io.h>
@@ -34,12 +33,13 @@ void calibration(uint8_t *measurement)
 	
 	uint8_t i=0;
 	
-	for (i=0;i<=2;i++)
+	//Add button to calibrate every axis at once
+	while((PINB & (1<<2))){}
+	while(!(PINB & (1<<2))){}
+		
+	for (i=0;i<=1;i++)
 	{
 		
-		//Add button to calibrate every axis... Just for testing purposes/will be changed in the oncoming versions
-		while((PINB & (1<<2))){}
-		while(!(PINB & (1<<2))){}
 		//setting the channel to measure the corresponding angle
 		ADMUX &= 0b11110000;
 		ADMUX = ADMUX | i;
@@ -53,7 +53,8 @@ void calibration(uint8_t *measurement)
 		
 	}
 	
-		
+	measurement[2] =(measurement[0]+measurement[1])/2;
+			
 }
 
 void measure(uint8_t *measurement)
@@ -66,7 +67,7 @@ void measure(uint8_t *measurement)
 		//setting the channel to measure the corresponding angle
 		ADMUX &= 0b11110000;
 		ADMUX = ADMUX | i;
-		//start the conversion. Then wait until conversion is completed. After redo this procedure in roder to make it more reliable
+		//start the conversion. Then wait until conversion is completed. After redo this procedure in order to make it more reliable
 		ADCSRA |= (1<<ADSC);
 		loop_until_bit_is_clear(ADCSRA,ADSC);
 		ADCSRA |= (1<<ADSC);
@@ -79,7 +80,7 @@ void measure(uint8_t *measurement)
 }
 
 //converting raw measurement from ADC values into a floating data type
-void conversion(uint8_t *calibrate, float *angle, uint8_t *measurement)
+void conversion(uint8_t *calibrate, float *angle, uint8_t *measurement, uint8_t secondmode)
 {
 	float components[3]={};
 	float resultant=0;
@@ -92,19 +93,30 @@ void conversion(uint8_t *calibrate, float *angle, uint8_t *measurement)
 		//Add up the components squared in order to obtain...
 		resultant=resultant + (components[i]*components[i]);
 	}
-	// ...Pythgoras theorem
+	// ...Pythagoras theorem
 	resultant=sqrt(resultant);
 	
-	for (i=0;i<=2;i++)
+	if (secondmode==1)
 	{
 		//obtain direction cosines of the resultant/truncate the value just to one decimal point.
-		angle[i]=truncf((acos(components[i]/resultant))*572.9)/10;
+		//subtract 90 in order to make it more "readable"
+		//just needing x & y axis to show
+		angle[0]=truncf((acos(components[0]/resultant))*572.9)/10;
+		angle[0]=angle[0]-90;
 		
 	}
-	
-	
-	
-	
+	else
+	{
+		for (i=0;i<=1;i++)
+		{
+			//obtain direction cosines of the resultant/truncate the value just to one decimal point.
+			//subtract 90 in order to make it more "readable"
+			//just needing x & y axis to show
+			angle[i]=truncf((acos(components[i]/resultant))*572.9)/10;
+			angle[i]=angle[i]-90;
+			
+		}
+	}
 }
 
 //self explaining function. Turns on the adc module of the uC
@@ -125,7 +137,7 @@ void setup_adc(void)
 	//PINA0-2 as input with no pull-up
 	DDRA = 0b11111000;
 	PORTA = 0b00000000;
-	//ADCSRA Not initialize ADC, no conversion, no autotrigger, no interrupt
+	//ADCSRA Not initialize ADC, no conversion, no auto-trigger, no interrupt
 	//ADMUX  right aligned, channel will be modified later, fosc/16, AVCC as reference
 	ADMUX |= (1<<ADLAR) | (1<<REFS0) | (1<<ADPS2);
 	

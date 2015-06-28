@@ -48,9 +48,11 @@ void st7565_set_brightness(uint8_t val);
 
 
 void clear_screen(void);
-void clear_buffer(uint8_t *buffer);
+void clear_buffer(uint8_t *buff);
 void write_buffer(uint8_t *buffer);
 void drawstring(uint8_t *buff, uint8_t x, uint8_t line, uint8_t text[]);
-void put_char(uint8_t *buff, uint8_t x, uint8_t line, uint8_t c);
+void drawchar(uint8_t *buff, uint8_t x, uint8_t line, uint8_t c);
+void clear_page(uint8_t *buffer, uint8_t page);
+void write_page(uint8_t *buffer, uint8_t page);
 
 

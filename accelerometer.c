@@ -26,17 +26,17 @@
 #include <math.h>
 #include <util/delay.h>
 
-
+//This fuctions takes the array in the main program saving calibration data
+//and to make it in one time the value for the "z" axis is calculated through
+//the first two measurements
 
 void calibration(uint8_t *measurement)
 {
 	
 	uint8_t i=0;
 	
-	//Add button to calibrate every axis at once
-	while((PINB & (1<<2))){}
-	while(!(PINB & (1<<2))){}
-		
+	//Cycle to calibrate every axis at once
+			
 	for (i=0;i<=1;i++)
 	{
 		
@@ -56,6 +56,9 @@ void calibration(uint8_t *measurement)
 	measurement[2] =(measurement[0]+measurement[1])/2;
 			
 }
+
+//This fuctions takes the array in the main program saving the measured data
+//and stores it in the corresponding value of it
 
 void measure(uint8_t *measurement)
 {
@@ -80,6 +83,7 @@ void measure(uint8_t *measurement)
 }
 
 //converting raw measurement from ADC values into a floating data type
+
 void conversion(uint8_t *calibrate, float *angle, uint8_t *measurement, uint8_t secondmode)
 {
 	float components[3]={};
@@ -95,26 +99,23 @@ void conversion(uint8_t *calibrate, float *angle, uint8_t *measurement, uint8_t 
 	}
 	// ...Pythagoras theorem
 	resultant=sqrt(resultant);
+
+	//obtain direction cosines of the resultant/truncate the value just to one decimal point.
+	//subtract 90 in order to make it more "readable"
+	//just needing x & y axis to show
+	//if secondmode is in one, just axis "x" is calculated
 	
 	if (secondmode==1)
 	{
-		//obtain direction cosines of the resultant/truncate the value just to one decimal point.
-		//subtract 90 in order to make it more "readable"
-		//just needing x & y axis to show
 		angle[0]=truncf((acos(components[0]/resultant))*572.9)/10;
 		angle[0]=angle[0]-90;
-		
-	}
+			}
 	else
 	{
 		for (i=0;i<=1;i++)
 		{
-			//obtain direction cosines of the resultant/truncate the value just to one decimal point.
-			//subtract 90 in order to make it more "readable"
-			//just needing x & y axis to show
 			angle[i]=truncf((acos(components[i]/resultant))*572.9)/10;
 			angle[i]=angle[i]-90;
-			
 		}
 	}
 }

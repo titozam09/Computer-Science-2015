@@ -23,6 +23,7 @@
 //Revision history:
 //Version 0: First development
 //Version 1: Added functions 26/06/2015 10:46 p. m.
+//Version 2: Deleted functions 28/06/2015 07:46 p. m.
 
 #include <avr/io.h>
 #include <util/delay.h>
@@ -107,7 +108,7 @@ void st7565_init(void)
 
 }
 
-//send 0x00 for every part of the screen
+//send 0x00 for every part of the screen not changing buffer
 void clear_screen(void)
 {
 	uint8_t page, column;
@@ -128,7 +129,7 @@ void clear_screen(void)
 
 }
 
-//clear A0 for making a command instruction data
+//clear A0 for making a command instruction data and send via SPI
 void st7565_command(uint8_t info)
 {
 	A0_PORT &= ~(1 << A0);
@@ -136,7 +137,7 @@ void st7565_command(uint8_t info)
 }
 
 
-//set A0 for making a data instruction data
+//set A0 for making a data instruction data and send via SPI
 
 void st7565_data(uint8_t info)
 
@@ -274,12 +275,6 @@ void drawstring(uint8_t *buff, uint8_t x, uint8_t line, uint8_t text[])
 		if (line >= (LCDHEIGHT/8))
 		return;        // ran out of space
 	}
-}
-
-// clear everything
-void clear_buffer(uint8_t *buff)
-{
-	memset(buff, 0, 1024);
 }
 
 

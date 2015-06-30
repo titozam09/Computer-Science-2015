@@ -21,7 +21,7 @@
 //Revision history:
 //Version 0: First development
 //Version 1: Added most of functions, accelerometer not included 28/06/2015 11:35 p. m.
-//Version 2: Accelerometer included, sleep function not included 29/06/2015 12:45 a. m.
+//Version 2: Accelerometer included, sleep function included 29/06/2015 12:45 a. m.
 
 #include <avr/io.h>
 #include <avr/interrupt.h>

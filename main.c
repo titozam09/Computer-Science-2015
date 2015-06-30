@@ -22,6 +22,7 @@
 //Version 0: First development
 //Version 1: Added most of functions, accelerometer not included 28/06/2015 11:35 p. m.
 //Version 2: Accelerometer included, sleep function included 29/06/2015 12:45 a. m.
+//Version 3: Comments added, fix delay in message of warning, issue with warning screen and clearing screen from "set reference" screen 30/06/2015 06:31 p. m.
 
 #include <avr/io.h>
 #include <avr/interrupt.h>
@@ -40,13 +41,15 @@ uint8_t calibrationdone=0;
 volatile uint8_t anglesetting=1;
 volatile uint8_t tempvariable=0;
 uint8_t buffer[1024]={0};
-	
+
 int main(void)
 {
+	//Declaration of variables, in order: angle from function set an angle, array containing the values of the set angle function, counter of the set angle function
+	//ascii value of the counter, array containin measurement of the accelerometer, array containin the calibration values of the accelerometer, array
+	//array containing the values of the calculation of angle, arrays containing ascii values of the calculation of angle,
 	
 	float angleset=0;
 	uint8_t anglesetstring[4]={0};
-	
 	uint8_t j=0; //to print
 	uint8_t stringj[1]={};
 	uint8_t measurement[3];
@@ -54,7 +57,7 @@ int main(void)
 	float angle[2];
 	char num1[10]={0};
 	char num2[10]={0};
-	uint8_t counter=0;
+
 	
 	DDRB &= ~(1<<2) & ~(1<<3); //setting PB2 as input for interrupt INT 2
 	DDRD &= ~(1<<2) & (1<<3); //setting PD2 and PD3 as input for interrupt INT0, INT1
@@ -68,10 +71,15 @@ int main(void)
 	st7565_init();
 	setup_adc();
 	turnon_adc();
-	DDRC = 0xFF; //purposes of testing
+	DDRC = 0xFF;
 	PORTC = 0x00;
+	
+	//endless loop of the uC
+	
 	while(1)
 	{
+		//Printing out the measure mode screen just once for preventing consuming time in the uC
+		
 		if ((screenmess==1) && (print==0))
 		{
 			//measuremode message
@@ -81,6 +89,8 @@ int main(void)
 			write_page(buffer,4);
 		}
 		
+		//Printing out the set angle mode screen just once for preventing consuming time in the uC
+
 		if ((screenmess==2) && (print==0))
 		{
 			//setanglemode message
@@ -89,6 +99,8 @@ int main(void)
 			drawstring(buffer,25,4,"SET ANGLE MODE");
 			write_page(buffer,4);
 		}
+
+		//Printing out the set reference mode screen just once for preventing consuming time in the uC
 		
 		if ((screenmess==4) && (print==0))
 		{
@@ -99,6 +111,9 @@ int main(void)
 			write_page(buffer,4);
 		}
 		
+		//Second screen of measurement mode activated by the button 2
+		//Prints the corresponding "background" and then refreshes the screen with the arrow and the measured angles
+
 		if ((screenmess==8) && (print==0))
 		{
 			//Start displaying the angle measured
@@ -119,6 +134,8 @@ int main(void)
 			write_page(buffer,1);
 			write_page(buffer,5);
 			write_page(buffer,2);
+
+			//Refreshes the values on the screen obtained from the accelerometer
 			
 			while (screenmess==8)
 			{
@@ -150,13 +167,17 @@ int main(void)
 			angle[2]=0;
 			
 		}
+
+		//Second screen of set angle mode activated by the button 2
+		//Prints the corresponding "background" and waits for the button 3 to change digit
+		//and waits for the button 2 (3 times) to change screen
 		
 		if ((screenmess==16) && (print==0))
 		{
 			//Ask for the desired angle
 			angleset=0;
 			print=1;
-			selection=2; //change later in code
+			selection=2;
 			anglesetting=1;
 			j=0;
 			clear_page(buffer,4);
@@ -166,6 +187,8 @@ int main(void)
 			{
 				//function setting angle
 				drawchar(buffer,85,4,95);
+				
+				//first digit
 				do
 				{
 					itoa(j,stringj,10);
@@ -190,6 +213,8 @@ int main(void)
 				j=0;
 				drawchar(buffer,72,4,'.');
 				
+				//second digit
+
 				do {
 					itoa(j,stringj,10);
 					drawchar(buffer,66,4,stringj[0]);
@@ -211,7 +236,9 @@ int main(void)
 				j--;
 				angleset+=j;
 				j=0;
-							
+				
+				//third digit
+				
 				do
 				{
 					itoa(j,stringj,10);
@@ -222,7 +249,7 @@ int main(void)
 					j=0;
 					while ((screenmess!=32) && ((PINB & (1<<3)) && (anglesetting==4)));
 					_delay_ms(100);
-									
+					
 					while ((screenmess!=32) && (!(PINB & (1<<3)) && (anglesetting==4)));
 					_delay_ms(100);
 					
@@ -240,6 +267,11 @@ int main(void)
 			
 		}
 		
+
+		//Third screen of set angle mode activated after the last screen is completed
+		//Prints the corresponding "background" and then it updates measure and
+		//graphical arrow
+
 		if ((screenmess==32) && (print==0))
 		{
 			//Set angle mode
@@ -276,7 +308,7 @@ int main(void)
 				drawchar(buffer,69+angle[0]/2,4,94);
 				write_page(buffer,4);
 				write_page(buffer,3);
-				if ((angle[0]<=(angleset+1)) && (angle[0]>=(angleset-1)))
+				if ((angle[0]<=(angleset+0.2)) && (angle[0]>=(angleset-0.2)))
 				PORTC= 0x01;
 				else
 				PORTC = 0x00;
@@ -284,17 +316,21 @@ int main(void)
 				
 				clear_page(buffer,3);
 				clear_page(buffer,4);
-								
+				
 			}
 			for(uint8_t i=1;i<7;i++)
 			clear_page(buffer,i);
 			angleset=0;
 			
 		}
+
+		//Warning message when no reference has previously defined
+
 		
 		if ((screenmess==64) && (print==0))
 		{
 			//Warning message
+			GICR &= ~(1<<INT0) & ~(1<<INT1) & ~(1<<INT2);
 			print=1;
 			clear_page(buffer,4);
 			drawstring(buffer,9,0,"   WARNING! NO");
@@ -307,14 +343,20 @@ int main(void)
 			drawstring(buffer,9,7," WITHIN 10 SECONDS");
 			for(uint8_t i=0;i<=7;i++)
 			write_page(buffer,i);
-			_delay_ms(2500); 
-			screenmess=128;
-			print=0;
+			_delay_ms(5000);
+			_delay_ms(5000);
+			
 			for(uint8_t i=0;i<=7;i++)
 			clear_page(buffer,i);
 			
-			
+			GICR |= (1<<INT0) | (1<<INT1) | (1<<INT2);
+			tempvariable=0;
+			screenmess=128;
+			print=0;
+			selection=2;
 		}
+
+		//Calibration message
 		
 		if ((screenmess==128) && (print==0))
 		{
@@ -333,9 +375,13 @@ int main(void)
 				//wait for pressing button 2
 			}
 			calibration(calibrate);
+			for(uint8_t i=2;i<6;i++)
+			clear_page(buffer,i);
+			tempvariable=0;
 			
-	
 		}
+		
+		//Sleep mode
 		
 		if (tempvariable==1)
 		{
@@ -370,14 +416,14 @@ ISR(INT0_vect)
 	{
 		screenmess=1;
 		selection=1;
-			
+		
 	}
 	
 	anglesetting=0;
 	selection=1;
 	print=0;//in order to rewrite the screen and to exit some modes
 	
-		
+	
 }
 
 
@@ -411,7 +457,7 @@ ISR(INT1_vect)
 	{
 		if (screenmess==16)
 		{
-			if (anglesetting==1)	
+			if (anglesetting==1)
 			{
 				anglesetting=2;
 				
@@ -446,10 +492,11 @@ ISR(INT1_vect)
 			
 		}
 		
-		 print=0;
-	 }
+		print=0;
+	}
 }
 
+//button 4 action
 ISR(INT2_vect)
 {
 	while(!(PINB & (1<<2)));
@@ -473,7 +520,7 @@ ISR(INT2_vect)
 		}
 		tempvariable=1;
 	} else
-	 
+	
 	{
 		turnon_adc();
 		spi_on();
@@ -486,6 +533,11 @@ ISR(INT2_vect)
 		tempvariable=0;
 		_delay_ms(200);
 		
+	}
+	
+	if (screenmess==64)
+	{
+		tempvariable=0;
 	}
 	
 	

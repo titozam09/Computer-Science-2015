@@ -43,7 +43,7 @@ void setpixel(uint8_t *buff, uint8_t x, uint8_t y, uint8_t color)
  
  
 // drawing a line using bresenham's algorithm
-drawline(uint8_t *buff, uint8_t x0, uint8_t y0, uint8_t x1, uint8_t y1, uint8_t color)
+void drawline(uint8_t *buff, uint8_t x0, uint8_t y0, uint8_t x1, uint8_t y1, uint8_t color)
 {
     uint8_t steep = abs(y1 - y0) > abs(x1 - x0);
     if (steep)

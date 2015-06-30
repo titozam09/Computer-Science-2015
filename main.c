@@ -21,30 +21,40 @@
 //Revision history:
 //Version 0: First development
 //Version 1: Added most of functions, accelerometer not included 28/06/2015 11:35 p. m.
+//Version 2: Accelerometer included, sleep function not included 29/06/2015 12:45 a. m.
 
 #include <avr/io.h>
 #include <avr/interrupt.h>
 #include <util/delay.h>
 #include <stdlib.h>
+#include <avr/sleep.h>
 #include "stlcd.h"
 #include "glcd.h"
 #include "spi.h"
+#include "accelerometer.h"
 
 volatile uint8_t screenmess=0x01;
 uint8_t print=0;
 uint8_t selection=1;
 uint8_t calibrationdone=0;
-uint8_t anglesetting=1;
-uint8_t tempvariable=0;
-
+volatile uint8_t anglesetting=1;
+volatile uint8_t tempvariable=0;
+uint8_t buffer[1024]={0};
+	
 int main(void)
 {
-	uint8_t buffer[1024]={0};
+	
 	float angleset=0;
 	uint8_t anglesetstring[4]={0};
 	
 	uint8_t j=0; //to print
 	uint8_t stringj[1]={};
+	uint8_t measurement[3];
+	uint8_t calibrate[3];
+	float angle[2];
+	char num1[10]={0};
+	char num2[10]={0};
+	uint8_t counter=0;
 	
 	DDRB &= ~(1<<2) & ~(1<<3); //setting PB2 as input for interrupt INT 2
 	DDRD &= ~(1<<2) & (1<<3); //setting PD2 and PD3 as input for interrupt INT0, INT1
@@ -56,6 +66,8 @@ int main(void)
 	GICR |= (1<<INT0) | (1<<INT1) | (1<<INT2); //Enabling interrupt
 	sei();
 	st7565_init();
+	setup_adc();
+	turnon_adc();
 	DDRC = 0xFF; //purposes of testing
 	PORTC = 0x00;
 	while(1)
@@ -103,7 +115,6 @@ int main(void)
 			drawline(buffer,116,47,116,44,1);
 			drawstring(buffer,15,6,"-90 -45  0  45  90");
 			drawstring(buffer,1,1,"NUMERIC ANGLE VALUES");
-			drawstring(buffer,1,2,"X=       _ Y=      _");
 			write_page(buffer,6);
 			write_page(buffer,1);
 			write_page(buffer,5);
@@ -111,23 +122,39 @@ int main(void)
 			
 			while (screenmess==8)
 			{
-				for (int8_t i=-90;i<=90;i++)
-				{
-					clear_page(buffer,4);
-					drawchar(buffer,69+i/2,4,94);
-					write_page(buffer,4);
-					_delay_ms(50);
-				}
 				//ACCELEROMETER FUNCTION
+				measure(measurement);
+				conversion(calibrate,angle,measurement,0);
+				dtostrf(angle[0],6,1,num1);
+				dtostrf(angle[1],6,1,num2);
+				drawstring(buffer,1,2,"X=       _ Y=      _");
+				drawstring(buffer,13,2,num1);
+				drawstring(buffer,79,2,num2);
+				drawchar(buffer,1,3,88); //printing X
+				drawchar(buffer,1,4,89); //printing Y
+				drawchar(buffer,69+angle[0]/2,3,94);
+				drawchar(buffer,69+angle[1]/2,4,94);
+				
+				write_page(buffer,2);
+				write_page(buffer,3);
+				write_page(buffer,4);
+				_delay_ms(150);
+				clear_page(buffer,2);
+				clear_page(buffer,3);
+				clear_page(buffer,4);
 			}
 			for(uint8_t i=1;i<7;i++)
 			clear_page(buffer,i);
+			angle[0]=0;
+			angle[1]=0;
+			angle[2]=0;
 			
 		}
 		
 		if ((screenmess==16) && (print==0))
 		{
 			//Ask for the desired angle
+			angleset=0;
 			print=1;
 			selection=2; //change later in code
 			anglesetting=1;
@@ -163,8 +190,7 @@ int main(void)
 				j=0;
 				drawchar(buffer,72,4,'.');
 				
-				do
-				{
+				do {
 					itoa(j,stringj,10);
 					drawchar(buffer,66,4,stringj[0]);
 					write_page(buffer,4);
@@ -183,11 +209,9 @@ int main(void)
 				j=9;
 				else
 				j--;
-				
 				angleset+=j;
 				j=0;
-				
-				
+							
 				do
 				{
 					itoa(j,stringj,10);
@@ -196,18 +220,18 @@ int main(void)
 					j++;
 					if (j>9)
 					j=0;
-					while ((PINB & (1<<3)) && (screenmess!=32));
-					_delay_ms(100);					
-					while (!(PINB & (1<<3)) && (screenmess!=32));
+					while ((screenmess!=32) && ((PINB & (1<<3)) && (anglesetting==4)));
 					_delay_ms(100);
+									
+					while ((screenmess!=32) && (!(PINB & (1<<3)) && (anglesetting==4)));
+					_delay_ms(100);
+					
 				} while (anglesetting==4);
 				if (j==0)
 				j=9;
 				else
 				j--;
 				angleset+=j*10;
-				
-				
 				
 			}
 			clear_page(buffer,3);
@@ -233,23 +257,39 @@ int main(void)
 			drawline(buffer,116,47,116,44,1);
 			drawstring(buffer,15,6,"-90 -45  0  45  90");
 			drawstring(buffer,25,1,"COMPARE ANGLE");
-			drawstring(buffer,1,2,"M=       _ S=      _");
 			write_page(buffer,1);
 			write_page(buffer,6);
 			write_page(buffer,5);
+			drawstring(buffer,1,2,"SET ANGLE=       _");
 			dtostrf(angleset,6,1,anglesetstring);
-			drawstring(buffer,79,2,anglesetstring);
+			drawstring(buffer,67,2,anglesetstring);
 			write_page(buffer,2);
 			while (screenmess==32)
 			{
-				
 				//function setting angle
+				measure(measurement);
+				conversion(calibrate,angle,measurement,1);
+				dtostrf(angle[0],6,1,num1);
+				drawstring(buffer,1,3,"MEASURE  =       _");
+				drawstring(buffer,67,3,num1);
+				drawchar(buffer,1,4,77); //printing M
+				drawchar(buffer,69+angle[0]/2,4,94);
+				write_page(buffer,4);
+				write_page(buffer,3);
+				if ((angle[0]<=(angleset+1)) && (angle[0]>=(angleset-1)))
+				PORTC= 0x01;
+				else
+				PORTC = 0x00;
+				_delay_ms(150);
+				
+				clear_page(buffer,3);
+				clear_page(buffer,4);
+								
 			}
-			clear_page(buffer,1);
-			clear_page(buffer,2);
-			clear_page(buffer,6);
-			clear_page(buffer,5);
+			for(uint8_t i=1;i<7;i++)
+			clear_page(buffer,i);
 			angleset=0;
+			
 		}
 		
 		if ((screenmess==64) && (print==0))
@@ -267,7 +307,7 @@ int main(void)
 			drawstring(buffer,9,7," WITHIN 10 SECONDS");
 			for(uint8_t i=0;i<=7;i++)
 			write_page(buffer,i);
-			_delay_ms(5000); //change into timer function
+			_delay_ms(2500); 
 			screenmess=128;
 			print=0;
 			for(uint8_t i=0;i<=7;i++)
@@ -281,7 +321,6 @@ int main(void)
 			//Calibration message
 			print=1;
 			selection=2;
-			//calibrationdone=2;//move in the code below later
 			clear_page(buffer,4);
 			drawstring(buffer,1,2,"1. ALIGN PRODUCT WITH   REFERENCE SURFACE.");
 			drawstring(buffer,1,4,"2. PRESS BUTTON 2 FOR   CALIBRATION.");
@@ -293,12 +332,22 @@ int main(void)
 			{
 				//wait for pressing button 2
 			}
-			for(uint8_t i=2;i<6;i++)
-			clear_page(buffer,i);
+			calibration(calibrate);
 			
-			
+	
 		}
 		
+		if (tempvariable==1)
+		{
+			PORTC |= (1<<1);
+			turnoff_adc();
+			st7565_command(CMD_DISPLAY_OFF);
+			spi_off();
+			sleep_cpu();
+			
+			PORTC &= ~(1<<1);
+			
+		}
 		
 	}
 }
@@ -325,6 +374,7 @@ ISR(INT0_vect)
 	}
 	
 	anglesetting=0;
+	selection=1;
 	print=0;//in order to rewrite the screen and to exit some modes
 	
 		
@@ -386,11 +436,60 @@ ISR(INT1_vect)
 		{
 			calibrationdone=1;
 			screenmess=1;
-			selection=1;//change into part of screen later
+			selection=1;
+			for(uint8_t i=2;i<6;i++)
+			clear_page(buffer,i);
+			drawstring(buffer,1,2,"   CALIBRATION DONE!");
+			write_page(buffer,2);
+			_delay_ms(1500);
+			clear_page(buffer,2);
+			
 		}
 		
 		 print=0;
 	 }
 }
 
-
+ISR(INT2_vect)
+{
+	while(!(PINB & (1<<2)));
+	_delay_ms(250);
+	if(tempvariable==0)
+	{
+		if ( screenmess==1)
+		{
+			set_sleep_mode(SLEEP_MODE_PWR_DOWN);
+			sleep_enable();
+		}else
+		if ( screenmess==2)
+		{
+			set_sleep_mode(SLEEP_MODE_PWR_DOWN);
+			sleep_enable();
+		}else
+		if ( screenmess==4)
+		{
+			set_sleep_mode(SLEEP_MODE_PWR_DOWN);
+			sleep_enable();
+		}
+		tempvariable=1;
+	} else
+	 
+	{
+		turnon_adc();
+		spi_on();
+		st7565_command(CMD_DISPLAY_ON);
+		sleep_disable();
+		screenmess=1;
+		print=0;
+		selection=1;
+		anglesetting=1;
+		tempvariable=0;
+		_delay_ms(200);
+		
+	}
+	
+	
+	
+	
+	
+}
